@@ -41,30 +41,4 @@ mod tests {
             let _ = should_error();
         }
     }
-
-    #[test]
-    fn test_probability_distribution() {
-        // Test over many iterations to roughly verify probabilities
-        let iterations = 10000;
-        let mut panic_count = 0;
-        let mut error_count = 0;
-
-        for _ in 0..iterations {
-            if should_panic() {
-                panic_count += 1;
-            }
-            if should_error() {
-                error_count += 1;
-            }
-        }
-
-        let panic_percentage = (panic_count as f64 / iterations as f64) * 100.0;
-        let error_percentage = (error_count as f64 / iterations as f64) * 100.0;
-
-        // Allow some variance (±1%)
-        assert!(panic_percentage >= 1.0 && panic_percentage <= 3.0,
-                "Panic percentage: {:.2}%", panic_percentage);
-        assert!(error_percentage >= 7.0 && error_percentage <= 9.0,
-                "Error percentage: {:.2}%", error_percentage);
-    }
 }

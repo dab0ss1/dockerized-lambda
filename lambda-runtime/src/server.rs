@@ -1,4 +1,5 @@
 use crate::{RuntimeError, RuntimeResult, LambdaHandler};
+use http::{StatusCode, header};
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
@@ -69,7 +70,7 @@ where
             // pass them to our service, and write responses back to the connection. It runs until the connection is closed or an error occurs.
             // Using Http1 instead of Http2 since I do not need any of the features of Http2 and it is simpler to implement.
             if let Err(err) = http1::Builder::new()
-                .keep_alive(true) // Keep connection alive for better resource utilization on the gateway side
+                .keep_alive(false)
                 .serve_connection(io, service)
                 .await
             {
@@ -118,8 +119,8 @@ async fn handle_health() -> Response<Full<Bytes>> {
     tracing::debug!("Health check requested");
 
     Response::builder()
-        .status(200)
-        .header("content-type", "application/json")
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "application/json")
         .body(Full::new(Bytes::from(r#"{"status":"healthy"}"#)))
         .unwrap()
 }
@@ -127,8 +128,8 @@ async fn handle_health() -> Response<Full<Bytes>> {
 /// Handle 404 Not Found
 async fn handle_not_found() -> Response<Full<Bytes>> {
     Response::builder()
-        .status(404)
-        .header("content-type", "application/json")
+        .status(StatusCode::NOT_FOUND)
+        .header(header::CONTENT_TYPE, "application/json")
         .body(Full::new(Bytes::from(r#"{"error":"Not Found"}"#)))
         .unwrap()
 }
@@ -168,7 +169,7 @@ mod helper_tests {
 
         assert_eq!(response.status(), 200);
         assert_eq!(
-            response.headers().get("content-type").unwrap(),
+            response.headers().get(header::CONTENT_TYPE.as_str()).unwrap(),
             "application/json"
         );
 
@@ -183,7 +184,7 @@ mod helper_tests {
 
         assert_eq!(response.status(), 404);
         assert_eq!(
-            response.headers().get("content-type").unwrap(),
+            response.headers().get(header::CONTENT_TYPE.as_str()).unwrap(),
             "application/json"
         );
 

@@ -1,6 +1,7 @@
 use lambda_models::{LambdaRequest, LambdaResponse};
+use lambda_runtime::headers::CustomHeader;
 use crate::utils::{should_panic, should_error, get_random_delay};
-use http::StatusCode;
+use http::{StatusCode, header};
 use serde_json::json;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -84,11 +85,11 @@ fn create_success_response(req: LambdaRequest, processing_delay: Duration, port:
     LambdaResponse {
         status_code: StatusCode::OK,
         headers: Some([
-            ("content-type".to_string(), "application/json".to_string()),
-            ("x-function-name".to_string(), "hello-lambda".to_string()),
-            ("x-lambda-port".to_string(), port.to_string()),
-            ("x-processing-delay-ms".to_string(), processing_delay.as_millis().to_string()),
-            ("x-handler-version".to_string(), "1.0.0".to_string()),
+            (header::CONTENT_TYPE.to_string(), "application/json".to_string()),
+            (CustomHeader::FunctionName.to_string(), "hello-lambda".to_string()),
+            (CustomHeader::LambdaPort.to_string(), port.to_string()),
+            (CustomHeader::ProcessingDelayMs.to_string(), processing_delay.as_millis().to_string()),
+            (CustomHeader::HandlerVersion.to_string(), "1.0.0".to_string()),
         ].into()),
         body: response_body.to_string(),
         request_id: req.request_id,
@@ -121,11 +122,11 @@ fn create_error_response(request_id: uuid::Uuid, port: u16) -> LambdaResponse {
     LambdaResponse {
         status_code: StatusCode::INTERNAL_SERVER_ERROR,
         headers: Some([
-            ("content-type".to_string(), "application/json".to_string()),
-            ("x-function-name".to_string(), "hello-lambda".to_string()),
-            ("x-lambda-port".to_string(), port.to_string()),
-            ("x-error-type".to_string(), "simulated".to_string()),
-            ("x-handler-version".to_string(), "1.0.0".to_string()),
+            (header::CONTENT_TYPE.to_string(), "application/json".to_string()),
+            (CustomHeader::FunctionName.to_string(), "hello-lambda".to_string()),
+            (CustomHeader::LambdaPort.to_string(), port.to_string()),
+            (CustomHeader::ErrorType.to_string(), "simulated".to_string()),
+            (CustomHeader::HandlerVersion.to_string(), "1.0.0".to_string()),
         ].into()),
         body: error_body.to_string(),
         request_id,
@@ -170,7 +171,7 @@ mod tests {
         assert_eq!(body["server_info"]["port"], 8081);
 
         // Test headers
-        assert_eq!(response.headers.as_ref().unwrap().get("x-lambda-port").unwrap(), "8081");
+        assert_eq!(response.headers.as_ref().unwrap().get(CustomHeader::LambdaPort.as_ref()).unwrap(), "8081");
     }
 
     #[tokio::test]
@@ -188,6 +189,6 @@ mod tests {
         assert_eq!(body["server_info"]["port"], 8082);
 
         // Test headers
-        assert_eq!(response.headers.as_ref().unwrap().get("x-lambda-port").unwrap(), "8082");
+        assert_eq!(response.headers.as_ref().unwrap().get(CustomHeader::LambdaPort.as_ref()).unwrap(), "8082");
     }
 }

@@ -7,6 +7,7 @@ pub mod server;
 pub mod handler;
 pub mod error;
 pub mod trace;
+pub mod headers;
 
 // Re-export models for convenience
 pub use lambda_models::{LambdaRequest, LambdaResponse};

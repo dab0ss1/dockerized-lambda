@@ -1,5 +1,6 @@
 use crate::fixtures::*;
 use crate::setup::*;
+use http::header;
 use serial_test::serial;
 
 #[tokio::test]
@@ -11,7 +12,7 @@ async fn test_health_endpoint() {
     let response = runtime.health().await.unwrap();
 
     assert_eq!(response.status(), 200);
-    assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+    assert_eq!(response.headers().get(header::CONTENT_TYPE.as_str()).unwrap(), "application/json");
 
     let body: serde_json::Value = response.json().await.unwrap();
     assert_eq!(body["status"], "healthy");

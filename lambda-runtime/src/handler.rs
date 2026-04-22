@@ -1,5 +1,8 @@
+use crate::headers::CustomHeader;
 use crate::trace::{make_span_with_request_id, on_request_end, on_request_start};
 use crate::{RuntimeError, RuntimeResult};
+use tracing::Instrument;
+use http::{StatusCode, header};
 use lambda_models::{LambdaRequest, LambdaResponse};
 use hyper::{Request, Response};
 use http_body_util::{Full, BodyExt};
@@ -56,24 +59,26 @@ where
             &lambda_request.path
         );
 
-        // Enter the span for all subsequent operations
-        let _enter = span.enter();
+        // Using tracing spans correctly when dealing with async code.
+        // Please reference this documentation for more infromation:
+        // https://docs.rs/tracing/latest/tracing/span/struct.Span.html#method.enter
+        async move {
+            on_request_start(request_id);
 
-        on_request_start(request_id);
+            // Call user handler
+            let handler_start = Instant::now();
+            let mut lambda_response = (self.user_handler)(lambda_request).await;
+            let handler_duration = handler_start.elapsed();
 
-        // Call user handler
-        let handler_start = Instant::now();
-        let mut lambda_response = (self.user_handler)(lambda_request).await;
-        let handler_duration = handler_start.elapsed();
+            // Override timing and request ID
+            lambda_response.execution_time_ms = handler_duration;
+            lambda_response.request_id = request_id;
 
-        // Override timing and request ID
-        lambda_response.execution_time_ms = handler_duration;
-        lambda_response.request_id = request_id;
+            on_request_end(request_id, handler_duration, lambda_response.status_code.as_u16());
 
-        on_request_end(request_id, handler_duration, lambda_response.status_code.as_u16());
-
-        // Convert to HTTP response
-        self.build_http_response(lambda_response)
+            // Convert to HTTP response
+            self.build_http_response(lambda_response)
+        }.instrument(span).await
     }
 
     /// Parse HTTP request into LambdaRequest (sent by gateway as JSON)
@@ -101,18 +106,18 @@ where
 
     /// Build HTTP response from LambdaResponse
     fn build_http_response(&self, lambda_response: LambdaResponse) -> RuntimeResult<Response<Full<Bytes>>> {
-        println!("Building HTTP response for LambdaResponse: {:?}", lambda_response);
+        tracing::debug!("Building HTTP response for LambdaResponse: {:?}", lambda_response);
         let mut builder = Response::builder()
             .status(lambda_response.status_code.as_u16())
-            .header("x-lambda-request-id", lambda_response.request_id.to_string())
-            .header("x-lambda-execution-time-ms", lambda_response.execution_time_ms.as_millis().to_string());
+            .header(CustomHeader::LambdaRequestId.as_ref(), lambda_response.request_id.to_string())
+            .header(CustomHeader::LambdaExecutionTimeMs.as_ref(), lambda_response.execution_time_ms.as_millis().to_string());
 
         let mut has_content_type = false;
 
         // Add headers if provided
         if let Some(headers) = lambda_response.headers {
             for (name, value) in headers {
-                if name.to_lowercase() == "content-type" {
+                if name.to_lowercase() == header::CONTENT_TYPE.as_str() {
                     has_content_type = true;
                 }
                 builder = builder.header(name, value);
@@ -121,10 +126,10 @@ where
 
         // Add default content-type if not specified
         if !has_content_type {
-            builder = builder.header("content-type", "application/json");
+            builder = builder.header(header::CONTENT_TYPE, "application/json");
         }
 
-        println!("Response builder after adding headers: {:?}", builder);
+        tracing::debug!("Response builder after adding headers: {:?}", builder);
 
         let response = builder
             .body(Full::new(Bytes::from(lambda_response.body)))
@@ -140,8 +145,8 @@ where
         });
 
         Response::builder()
-            .status(500)
-            .header("content-type", "application/json")
+            .status(StatusCode::INTERNAL_SERVER_ERROR)
+            .header(header::CONTENT_TYPE, "application/json")
             .body(Full::new(Bytes::from(error_body.to_string())))
             .unwrap()
     }

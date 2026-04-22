@@ -48,10 +48,8 @@ pub fn on_request_start(request_id: Uuid) {
 
 /// Log request completion
 pub fn on_request_end(request_id: Uuid, latency: Duration, status_code: u16) {
-    let status_code_class = status_code / 100;
-
-    match status_code_class {
-        4..=5 => {
+    match status_code {
+        400..=599 => {
             tracing::event!(
                 Level::ERROR,
                 request_id = %request_id,

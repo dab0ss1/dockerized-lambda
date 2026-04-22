@@ -1,5 +1,5 @@
 use lambda_models::{LambdaRequest, LambdaResponse};
-use http::StatusCode;
+use http::{StatusCode, header};
 use std::collections::HashMap;
 use std::time::Duration;
 use uuid::Uuid;
@@ -38,7 +38,7 @@ pub fn create_custom_request(path: &str, method: http::Method, body: &str) -> La
 pub fn echo_handler(req: LambdaRequest) -> LambdaResponse {
     LambdaResponse {
         status_code: StatusCode::OK,
-        headers: Some([("content-type".to_string(), "application/json".to_string())].into()),
+        headers: Some([(header::CONTENT_TYPE.to_string(), "application/json".to_string())].into()),
         body: serde_json::json!({
             "echo": {
                 "method": req.method.to_string(),
@@ -66,7 +66,7 @@ pub fn routing_handler(req: LambdaRequest) -> LambdaResponse {
 
     LambdaResponse {
         status_code: status,
-        headers: Some([("content-type".to_string(), "application/json".to_string())].into()),
+        headers: Some([(header::CONTENT_TYPE.to_string(), "application/json".to_string())].into()),
         body: body.to_string(),
         request_id: req.request_id,
         execution_time_ms: Duration::from_millis(0),

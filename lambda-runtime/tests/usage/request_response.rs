@@ -1,7 +1,9 @@
 use crate::fixtures::*;
 use crate::setup::*;
 use chrono::Utc;
+use http::header;
 use lambda_models::LambdaRequest;
+use lambda_runtime::headers::CustomHeader;
 use serial_test::serial;
 use uuid::Uuid;
 
@@ -40,16 +42,16 @@ async fn test_complete_request_response_mapping() {
 
     // Test HTTP response attributes
     assert_eq!(response.status(), 200);
-    assert_eq!(response.headers().get("content-type").unwrap(), "application/json");
+    assert_eq!(response.headers().get(header::CONTENT_TYPE.as_str()).unwrap(), "application/json");
 
     println!("Response Headers: {:?}", response.headers());
 
     // Test metadata headers
     assert_eq!(
-        response.headers().get("x-lambda-request-id").unwrap(),
+        response.headers().get(CustomHeader::LambdaRequestId.as_ref()).unwrap(),
         original_request_id.to_string().as_str()
     );
-    let execution_time_header = response.headers().get("x-lambda-execution-time-ms").unwrap();
+    let execution_time_header = response.headers().get(CustomHeader::LambdaExecutionTimeMs.as_ref()).unwrap();
     let execution_time_ms: u64 = execution_time_header.to_str().unwrap().parse().unwrap();
     assert!(execution_time_ms > 10); // Should be greater than 10ms for async handler
 
