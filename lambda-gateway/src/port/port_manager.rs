@@ -1,8 +1,10 @@
 // use indexmap::IndexSet;
 use tokio::sync::{Mutex, mpsc};
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
-use crate::{data_structure::QueueSet, port::{AllocatedPort, PortError, PortRange}};
+use crate::{data_structure::QueueSet, port::{AllocatedPort, PortError}};
+
+const PORT_RELEASE_CHANNEL_CAPACITY: usize = 1000;
 
 pub struct PortManager {
     // Single source of truth: if a port is in this queue, it's available.
@@ -16,14 +18,15 @@ pub struct PortManager {
 }
 
 impl PortManager {
-    pub fn new(port_range: PortRange) -> Arc<Self> {
-        let (port_release_sender, port_release_receiver) = mpsc::channel(1000);
+    pub fn new(port_range: Range<u16>) -> Arc<Self> {
+
+        let (port_release_sender, port_release_receiver) = mpsc::channel(PORT_RELEASE_CHANNEL_CAPACITY);
 
         // Pre-allocate VecDeque with exact capacity and populate with all ports
         let port_count = (port_range.end - port_range.start) as usize;
         // let mut available_ports = IndexSet::with_capacity(port_count);
         let mut available_ports = QueueSet::with_capacity(port_count);
-        for port in port_range.start..port_range.end {
+        for port in port_range {
             // available_ports.insert(port);
             available_ports.push_back(port);
         }
@@ -105,8 +108,8 @@ mod tests {
     use std::time::Duration;
     use tokio::time::timeout;
 
-    fn create_test_port_range(size: u16) -> PortRange {
-        PortRange {
+    fn create_test_port_range(size: u16) -> Range<u16> {
+        Range {
             start: 8000,
             end: 8000 + size,
         }
@@ -339,7 +342,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_port_manager_with_single_port() {
-        let port_range = PortRange { start: 9000, end: 9001 };
+        let port_range = Range { start: 9000, end: 9001 };
         let manager = PortManager::new(port_range);
 
         assert_eq!(manager.available_count().await, 1);
@@ -450,7 +453,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_port_range_boundaries() {
-        let port_range = PortRange { start: 65530, end: 65535 };
+        let port_range = Range { start: 65530, end: 65535 };
         let manager = PortManager::new(port_range);
 
         assert_eq!(manager.available_count().await, 5);
@@ -685,7 +688,7 @@ mod tests {
     #[tokio::test]
     async fn test_available_count_edge_cases() {
         // Test with single port
-        let single_port_range = PortRange { start: 9000, end: 9001 };
+        let single_port_range = Range { start: 9000, end: 9001 };
         let single_manager = PortManager::new(single_port_range);
 
         assert_eq!(single_manager.available_count().await, 1);
