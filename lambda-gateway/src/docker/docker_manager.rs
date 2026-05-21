@@ -6,7 +6,6 @@ use bollard::{
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
-use std::sync::Arc;
 
 use crate::docker::DockerError;
 
@@ -42,6 +41,7 @@ const FILTER_MANAGED_BY_LABEL: &str = "managed-by=lambda-gateway";
 
 // — Health Check —
 const HEALTH_CHECK_PATH: &str = "health";
+const HEALTH_CHECK_TIMEOUT: u64 = 5;
 
 #[derive(Debug)]
 pub struct DockerManager {
@@ -53,7 +53,9 @@ pub struct DockerManager {
 pub struct DockerConfig {
     pub binary_path: PathBuf,
     pub binary_name: String,
+    // Memory limit in MB
     pub memory_limit_mb: u64,
+    // CPU limit (1.0 = 1 CPU core)
     pub cpu_limit: f64,
 }
 
@@ -65,7 +67,7 @@ impl DockerConfig {
 }
 
 impl DockerManager {
-    pub fn new(config: DockerConfig) -> Result<Arc<Self>, DockerError> {
+    pub fn new(config: DockerConfig) -> Result<Self, DockerError> {
         // Validate binary exists
         let binary_path = config.binary_full_path();
         if !binary_path.exists() {
@@ -73,7 +75,7 @@ impl DockerManager {
         }
 
         let client = Docker::connect_with_local_defaults()?;
-        Ok(Arc::new(Self { client, config }))
+        Ok(Self { client, config })
     }
 
     #[tracing::instrument(name = "CreatContainer", skip_all)]
@@ -213,7 +215,7 @@ impl DockerManager {
         let url = format!("http://{LOCALHOST}:{port}/{HEALTH_CHECK_PATH}");
 
         match tokio::time::timeout(
-            Duration::from_secs(5),
+            Duration::from_secs(HEALTH_CHECK_TIMEOUT),
             client.get(&url).send()
         ).await {
             Ok(Ok(response)) => {
