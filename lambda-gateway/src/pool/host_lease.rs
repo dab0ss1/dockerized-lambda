@@ -26,7 +26,7 @@ impl HostLease {
     }
 
     /// Release the host lease immediately
-    pub fn release_now(self) {
+    pub fn release(self) {
         // Do nothing - just consume self
         // Drop will handle sending the lease_id
     }

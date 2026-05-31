@@ -45,8 +45,8 @@ impl HostPoolManager {
             cpu_limit: config.container_limits.cpu_limit,
         };
 
-        let docker_manager = DockerManager::new(docker_config)
-            .expect("Docker Manager required for gateway to be created.");
+        let docker_manager = Arc::new(DockerManager::new(docker_config)
+            .expect("Docker Manager required for gateway to be created."));
         tracing::info!("Docker manager initialized");
 
         let manager = Arc::new(Self {

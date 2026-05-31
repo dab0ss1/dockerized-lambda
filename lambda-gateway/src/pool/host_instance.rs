@@ -34,7 +34,7 @@ impl HostInstance {
     }
 
     /// Manually stop the container (optional - will happen automatically on drop)
-    pub async fn stop_now(self) {
+    pub async fn stop(self) {
         // Do nothing - just consume self for drop to run
     }
 }
